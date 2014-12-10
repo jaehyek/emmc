@@ -1734,7 +1734,7 @@ static int mmc_wearout_run_power_onoff(struct mmc_test_card *test)
 		
 	for ( i = 0 ; i < countloop ; i ++ )
 	{
-		err = mmc_hw_reset_check(host);
+		err = mmc_do_hw_reset(host);
 		if (err)
 			break;
 	}
@@ -1794,6 +1794,19 @@ static int mmc_wearout_run_disable_cache(struct mmc_test_card *test)
 	return 	mmc_cache_ctrl(host, mmc_wearout_debugfs.param1);
 }
 
+static int mmc_wearout_run_modify_extcsd(struct mmc_test_card *test)
+{
+	struct mmc_card *card = test->card;
+	struct mmc_host *host = card->host;
+	int err ;
+
+	pr_info("_______________ run the routine ,mmc_wearout_run_disable_cache  __________________\n" ) ;
+	err = mmc_switch(card, EXT_CSD_CMD_SET_NORMAL,
+			mmc_wearout_debugfs.param1, mmc_wearout_debugfs.param2, 0);
+
+	return 	err ;
+}
+
 
 static const struct mmc_wearout_test_case list_mmc_wearout_test_case[] = 
 {
@@ -1837,6 +1850,10 @@ static const struct mmc_wearout_test_case list_mmc_wearout_test_case[] =
 	{
 			.name = "eMMC enable/disable Cache",
 			.run = mmc_wearout_run_disable_cache,
+	},
+	{
+			.name = "eMMC Modify EXT_CSD value",
+			.run = mmc_wearout_run_modify_extcsd,
 	},
 	
 
@@ -2220,7 +2237,7 @@ int mmc_wearout_init(struct mmc_card *card)
 			goto err;
 		if (!debugfs_create_u32("result", S_IRUGO | S_IWUGO, card->debugfs_root, &mmc_wearout_debugfs.result))
 			goto err;
-
+                  
 
 		mmc_wearout_get_lifevalue(&test, &lifehist);
 		mmc_wearout_debugfs.lifevalue = lifehist.levellife ;
