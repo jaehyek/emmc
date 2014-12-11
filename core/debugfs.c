@@ -1734,7 +1734,7 @@ static int mmc_wearout_run_power_onoff(struct mmc_test_card *test)
 		
 	for ( i = 0 ; i < countloop ; i ++ )
 	{
-		err = mmc_do_hw_reset(host);
+		err = mmc_hw_reset(host);
 		if (err)
 			break;
 	}
@@ -1754,6 +1754,33 @@ static int mmc_wearout_run_power_onoff(struct mmc_test_card *test)
 
 	return RESULT_UNSUP_HOST;
 }
+
+
+static int mmc_wearout_run_power_onoff_without_resotring(struct mmc_test_card *test)
+{
+	struct mmc_card *card = test->card;
+
+	unsigned int countloop = mmc_wearout_debugfs.countloop;
+	struct mmc_host *host = card->host;
+
+	int i ; 
+
+	pr_info("_______________ run the routine , mmc_power_onoff without restoring  __________________\n" ) ;
+
+	if ( countloop == 0 ) 
+	{
+		countloop = 1 ; 
+		mmc_wearout_debugfs.countloop = 1 ; 
+	}
+		
+	for ( i = 0 ; i < countloop ; i ++ )
+	{
+		mmc_power_cycle(host);
+	}
+
+	return 0;
+}
+
 
 static int mmc_wearout_run_sleep(struct mmc_test_card *test)
 {
@@ -1797,7 +1824,6 @@ static int mmc_wearout_run_disable_cache(struct mmc_test_card *test)
 static int mmc_wearout_run_modify_extcsd(struct mmc_test_card *test)
 {
 	struct mmc_card *card = test->card;
-	struct mmc_host *host = card->host;
 	int err ;
 
 	pr_info("_______________ run the routine ,mmc_wearout_run_disable_cache  __________________\n" ) ;
@@ -1834,6 +1860,10 @@ static const struct mmc_wearout_test_case list_mmc_wearout_test_case[] =
 	{
 			.name = "eMMC Power On/Off repeat",
 			.run = mmc_wearout_run_power_onoff,
+	},
+	{
+			.name = "eMMC Power On/Off repeat without restoring",
+			.run = mmc_wearout_run_power_onoff_without_resotring,
 	},
 	{
 			.name = "eMMC Sleep",
