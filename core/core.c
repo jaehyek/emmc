@@ -2069,7 +2069,7 @@ void mmc_power_off(struct mmc_host *host)
 
 void mmc_power_cycle(struct mmc_host *host)
 {
-	pr_info("_______________ run the routine , core/core.c : mmc_power_cycle  __________________\n" ) ;
+	pr_info("_______msgmmc,core.c,mmc_power_cycle\n" ) ;
 	mmc_power_off(host);
 	/* Wait at least 1 ms according to SD spec */
 	mmc_delay(1);
@@ -2766,7 +2766,7 @@ static int mmc_do_hw_reset(struct mmc_host *host, int check)
 {
 	struct mmc_card *card = host->card;
 
-	pr_info("_______________ run the routine , core/core.c : mmc_do_hw_reset  __________________\n" ) ;
+	pr_info("_______msgmmc,core.c,mmc_do_hw_reset\n" ) ;
 
 	if (!host->bus_ops->power_restore)
 		return -EOPNOTSUPP;
@@ -2797,7 +2797,7 @@ static int mmc_do_hw_reset(struct mmc_host *host, int check)
 		err = mmc_wait_for_cmd(card->host, &cmd, 0);
 		if (!err) 
 		{
-			pr_info("_______________ run the routine , core/core.c : error : mmc_wait_for_cmd  __________________\n" ) ;
+			pr_info("_______msgmmc,core.c,mmc_do_hw_reset/checking\n" ) ;
 			mmc_host_clk_release(host);
 			return -ENOSYS;
 		}

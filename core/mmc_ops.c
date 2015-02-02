@@ -65,7 +65,7 @@ int mmc_card_sleepawake(struct mmc_host *host, int sleep)
 	struct mmc_card *card = host->card;
 	int err;
 
-	pr_info("_______________ run the routine ,  mmc_ops : mmc_card_sleepawake : %d  __________________\n", sleep ) ;
+	pr_info("_______msgmmc,mmc_ops.c,mmc_card_sleepawake \n" )
 
 	if (sleep)
 		mmc_deselect_cards(host);

@@ -443,25 +443,25 @@ static int mmc_ext_csd_open(struct inode *inode, struct file *filp)
 
 	switch (ext_csd_rev) {
 	case 7:
-	       str = "5.0";
+	       str = "v5.0";
 	       break;
        case 6:
-               str = "4.5";
+               str = "v4.5, v4.51";
                break;
        case 5:
-               str = "4.41";
+               str = "v4.41";
                break;
        case 3:
-               str = "4.3";
+               str = "v4.3";
                break;
        case 2:
-               str = "4.2";
+               str = "v4.2";
                break;
        case 1:
-               str = "4.1";
+               str = "v4.1";
                break;
        case 0:
-               str = "4.0";
+               str = "v4.0";
                break;
        default:
                goto out_free;
@@ -498,8 +498,8 @@ static int mmc_ext_csd_open(struct inode *inode, struct file *filp)
 		}
 	   
 
-       if (ext_csd_rev < 3)
-               goto out_free; /* No ext_csd */
+	if (ext_csd_rev < 3)
+		goto out_free; /* No ext_csd */
 
 	/* Parse the Extended CSD registers.
 	 * Reserved bit should be read as "0" in case of spec older
@@ -806,7 +806,6 @@ static const struct file_operations mmc_dbg_ext_csd_fops = {
 	.open		= mmc_ext_csd_open,
 #ifdef CONFIG_MACH_LGE
 	/* LGE_CHANGE
-	* http://www.mail-archive.com/linux-mmc@vger.kernel.org/msg10669.html
 	* 2012-07-09, J1-FS@lge.com
 	*/
 	.read		   = seq_read,
@@ -1307,7 +1306,7 @@ static void mmc_wearout_get_lifevalue(struct mmc_test_card *test, struct mmc_lif
 	ext_csd = kmalloc(size, GFP_KERNEL);
 	if(!ext_csd)
 	{
-		pr_info("_______________ mmc malloc failed for ext_csd :  __________________\n" ) ;
+		pr_info("_______msgmmc,debugfs.c,mmc_wearout_get_lifevalue/kmalloc erroor for ext_csd\n" ) ;
 		return ;
 	}
 		
@@ -1380,14 +1379,14 @@ static int mmc_wearout_backup_blocks(struct mmc_test_card *test)
 	loopmax = mmc_wearout_debugfs.countsaveaddrs;
 	if (!loopmax || !psaveblocks )
 	{
-		pr_info("_______________ countsaveaddrs == 0  __________________\n" ) ;
+		pr_info("_______msgmmc,debugfs.c,mmc_wearout_backup_blocks/ loopmax=0 or psaveblocks=0 \n" ) ;
 		mmc_wearout_debugfs.countsaveaddrs = 0 ;
 		return RESULT_FAIL ;
 	}
 
 	if( mmc_wearout_debugfs.cmdindex == 1 && (!mmc_wearout_debugfs.listaddrrandom)) 
 	{
-		pr_info("_______________ listaddrrandom was not setuped .  __________________\n" ) ;
+		pr_info("_______msgmmc,debugfs.c,mmc_wearout_backup_blocks/ listaddrrandom was not setuped \n" ) ;
 		return RESULT_FAIL ;
 
 	}
@@ -1419,8 +1418,6 @@ static int mmc_wearout_backup_blocks(struct mmc_test_card *test)
 		local_irq_save(flags);
 		sg_copy_to_buffer(&sg, 1, ptemp, size);
 		local_irq_restore(flags);
-
-		pr_info("_______________ mmc backup loop : %d __________________\n", loop ) ;
 		
 		ret = mmc_wearout_check_result(test, &mrq);
 		if (ret != 0)
@@ -1436,7 +1433,7 @@ static int mmc_wearout_backup_blocks(struct mmc_test_card *test)
 static int mmc_wearout_multi_write(struct mmc_test_card *test)
 {
 	int ret = 0 ;
-	unsigned int size, loop, looplifeupdate ;
+	unsigned int size, loop ;
 	struct mmc_lifehist prevlifehist, postlifehist;
 	struct scatterlist sg;
 	struct mmc_request mrq = {0};
@@ -1468,12 +1465,12 @@ static int mmc_wearout_multi_write(struct mmc_test_card *test)
 
 	mmc_wearout_debugfs.cmdstop = 0 ; 
 	mmc_wearout_debugfs.countrepeated = 0 ; 
-	looplifeupdate = 0 ;
+
 	
 	mmc_wearout_get_lifevalue(test, &prevlifehist);
 	prevlifehist.looplife = 0 ;
 
-	while (!mmc_wearout_debugfs.cmdstop)
+	while ( mmc_wearout_debugfs.countloop-- )
 	{
 		for(loop = 0 ; loop < mmc_wearout_debugfs.countsaveaddrs ; loop ++)
 		{
@@ -1486,12 +1483,19 @@ static int mmc_wearout_multi_write(struct mmc_test_card *test)
 			mmc_wait_for_req(test->card->host, &mrq);
 			ret = mmc_wearout_check_result(test, &mrq);
 			if (ret != 0)
-			return ret ;
+				break;
 
 		}
+
+		mmc_wearout_debugfs.countrepeated ++ ;
 		
-		looplifeupdate ++ ;
-		if ( looplifeupdate == mmc_wearout_debugfs.countlifemeasure ) 
+		if (ret)
+			break;
+		if (mmc_wearout_debugfs.cmdstop == 1 ) 
+			break;
+		
+
+		if (  (mmc_wearout_debugfs.countrepeated % mmc_wearout_debugfs.countlifemeasure ) == 0 ) 
 		{
 			mmc_wearout_get_lifevalue(test, &postlifehist);
 			postlifehist.looplife = mmc_wearout_debugfs.countrepeated ;
@@ -1507,9 +1511,8 @@ static int mmc_wearout_multi_write(struct mmc_test_card *test)
 				//preserve the current lifehist for next computation.
 				memcpy(&prevlifehist, &postlifehist, sizeof(struct mmc_lifehist));
 			}
-			looplifeupdate = 0 ;
 		}
-		mmc_wearout_debugfs.countrepeated ++ ;
+
 	}
 
 	return ret ;
@@ -1564,8 +1567,7 @@ static int mmc_wearout_restore_blocks(struct mmc_test_card *test)
 		mmc_wait_for_req(test->card->host, &mrq);
 		mmc_wearout_wait_busy(test);
 
-		pr_info("_______________ mmc restore loop : %d __________________\n", loop ) ;
-		
+
 		ret = mmc_wearout_check_result(test, &mrq);
 		if (ret != 0)
 			return ret ;
@@ -1597,7 +1599,7 @@ static int mmc_wearout_run_notsave_size_write(struct mmc_test_card *test)
 
 	if (!(mmc_wearout_debugfs.countnotsavewrite && mmc_wearout_debugfs.addrblockstart  ))
 	{
-		pr_info("_______________ countnotsavewrite, addrblockstart was not setup :  __________________\n" ) ;
+		pr_info("_______msgmmc,debugfs.c,mmc_wearout_run_notsave_size_write/ countnotsavewrite, addrblockstart was not setup d \n" ) ;
 		return RESULT_FAIL;
 	}
 
@@ -1623,7 +1625,7 @@ static int mmc_wearout_run_notsave_size_write(struct mmc_test_card *test)
 	mmc_wearout_get_lifevalue(test, &prevlifehist);
 	prevlifehist.looplife = 0 ;
 	
-	while ( !mmc_wearout_debugfs.cmdstop ) 
+	while ( mmc_wearout_debugfs.countloop-- )
 	{
 		for(loop = 0 ; loop < mmc_wearout_debugfs.countnotsavewrite ; loop += 8 )
 		{
@@ -1635,9 +1637,17 @@ static int mmc_wearout_run_notsave_size_write(struct mmc_test_card *test)
 			//mmc_wearout_wait_busy(test);
 			mmc_wait_for_req(test->card->host, &mrq);
 			ret = mmc_wearout_check_result(test, &mrq);
+			
 			if (ret != 0)
-				return ret ;
+				break ;
 		}
+
+		mmc_wearout_debugfs.countrepeated ++ ;
+		
+		if (ret)
+			break;
+		if (mmc_wearout_debugfs.cmdstop == 1 ) 
+			break;
 
 		if ( (mmc_wearout_debugfs.countrepeated % mmc_wearout_debugfs.countlifemeasure ) == 0 )
 		{
@@ -1656,11 +1666,12 @@ static int mmc_wearout_run_notsave_size_write(struct mmc_test_card *test)
 				memcpy(&prevlifehist, &postlifehist, sizeof(struct mmc_lifehist));
 			}
 		}
-		mmc_wearout_debugfs.countrepeated ++ ;
+
 		if(mmc_wearout_debugfs.onetime)
 		{
 			mmc_wearout_debugfs.cmdstop = 1 ;
 			mmc_wearout_debugfs.onetime= 0 ;
+			break;
 		}
 	}
 
@@ -1683,7 +1694,7 @@ static int mmc_wearout_run_notsave_random_write(struct mmc_test_card *test)
 
 	if (!(mmc_wearout_debugfs.listaddrrandom && mmc_wearout_debugfs.sizelistaddrrandom && mmc_wearout_debugfs.addrblockstart  ))
 	{
-		pr_info("_______________ addrblockstart, listaddrrandom was not setup :  __________________\n" ) ;
+		pr_info("_______msgmmc,debugfs.c,mmc_wearout_run_notsave_random_write / listaddrrandom was not setup d \n" ) ;
 		return RESULT_FAIL;
 	}
 
@@ -1709,7 +1720,7 @@ static int mmc_wearout_run_notsave_random_write(struct mmc_test_card *test)
 	mmc_wearout_get_lifevalue(test, &prevlifehist);
 	prevlifehist.looplife = 0 ;
 
-	while (!mmc_wearout_debugfs.cmdstop)
+	while ( mmc_wearout_debugfs.countloop-- )
 	{
 		for(loop = 0 ; loop < mmc_wearout_debugfs.sizelistaddrrandom ; loop ++)
 		{
@@ -1721,9 +1732,18 @@ static int mmc_wearout_run_notsave_random_write(struct mmc_test_card *test)
 			//mmc_wearout_wait_busy(test);
 			mmc_wait_for_req(test->card->host, &mrq);
 			ret = mmc_wearout_check_result(test, &mrq);
+
+			
 			if (ret != 0)
-				return ret ;
+				break ;
 		}
+
+		mmc_wearout_debugfs.countrepeated ++ ;
+		
+		if (ret)
+			break;
+		if (mmc_wearout_debugfs.cmdstop == 1 ) 
+			break;
 		
 
 		if ( (mmc_wearout_debugfs.countrepeated % mmc_wearout_debugfs.countlifemeasure ) == 0 )
@@ -1743,7 +1763,7 @@ static int mmc_wearout_run_notsave_random_write(struct mmc_test_card *test)
 				memcpy(&prevlifehist, &postlifehist, sizeof(struct mmc_lifehist));
 			}
 		}
-		mmc_wearout_debugfs.countrepeated ++ ;
+		
 	}
 
 	return ret ;
@@ -1755,22 +1775,25 @@ static int mmc_wearout_run_power_onoff(struct mmc_test_card *test)
 {
 	struct mmc_card *card = test->card;
 	struct mmc_host *host = card->host;
-	unsigned int countloop = mmc_wearout_debugfs.countloop;
 	int err;
-	int i ; 
 
-	pr_info("_______________ run the routine ,mmc_wearout_run_power_onoff  __________________\n" ) ;
 
-	if ( countloop == 0 ) 
-	{
-		countloop = 1 ; 
+	pr_info("_______msgmmc,debugfs.c,mmc_wearout_run_power_onoff \n" ) ;
+
+	mmc_wearout_debugfs.cmdstop = 0 ; 
+	mmc_wearout_debugfs.countrepeated = 0 ; 
+
+	if ( mmc_wearout_debugfs.countloop == 0 ) 
 		mmc_wearout_debugfs.countloop = 1 ; 
-	}
-		
-	for ( i = 0 ; i < countloop ; i ++ )
+
+	while ( mmc_wearout_debugfs.countloop-- )
 	{
 		err = mmc_hw_reset(host);
+		mmc_wearout_debugfs.countrepeated ++ ;
+		
 		if (err)
+			break;
+		if (mmc_wearout_debugfs.cmdstop == 1 ) 
 			break;
 	}
 
@@ -1794,54 +1817,70 @@ static int mmc_wearout_run_power_onoff(struct mmc_test_card *test)
 static int mmc_wearout_run_power_onoff_without_resotring(struct mmc_test_card *test)
 {
 	struct mmc_card *card = test->card;
-
-	unsigned int countloop = mmc_wearout_debugfs.countloop;
 	struct mmc_host *host = card->host;
 
-	int i ; 
+	mmc_wearout_debugfs.cmdstop = 0 ; 
+	mmc_wearout_debugfs.countrepeated = 0 ; 
+	
+	pr_info("_______msgmmc,debugfs.c,mmc_wearout_run_power_onoff_without_resotring \n" ) ;
 
-	pr_info("_______________ run the routine , mmc_power_onoff without restoring  __________________\n" ) ;
-
-	if ( countloop == 0 ) 
-	{
-		countloop = 1 ; 
+	if ( mmc_wearout_debugfs.countloop == 0 ) 
 		mmc_wearout_debugfs.countloop = 1 ; 
-	}
 		
-	for ( i = 0 ; i < countloop ; i ++ )
+	while ( mmc_wearout_debugfs.countloop-- )
 	{
 		mmc_power_cycle(host);
+		mmc_delay(mmc_wearout_debugfs.param1);
+
+		mmc_wearout_debugfs.countrepeated ++ ;
+		if (mmc_wearout_debugfs.cmdstop == 1 ) 
+			break;	
 	}
 
-	return 0;
+	// restore the status after one more reset.
+	return mmc_wearout_run_power_onoff(test);
 }
 
 
-static int mmc_wearout_run_sleep(struct mmc_test_card *test)
+static int mmc_wearout_run_sleep_wakeup(struct mmc_test_card *test)
 {
 	struct mmc_card *card = test->card;
 	struct mmc_host *host = card->host;
+	int ret ;
 
-	pr_info("_______________ run the routine ,mmc_wearout_run_sleep  __________________\n" ) ;
+	mmc_wearout_debugfs.cmdstop = 0 ; 
+	mmc_wearout_debugfs.countrepeated = 0 ; 
 
-	return 	mmc_card_sleep(host);
+	pr_info("_______msgmmc,debugfs.c,mmc_wearout_run_sleep_wakeup \n" ) ;
+
+	if ( mmc_wearout_debugfs.countloop == 0 ) 
+		mmc_wearout_debugfs.countloop = 1 ; 
+		
+	while ( mmc_wearout_debugfs.countloop-- )
+	{
+		ret = mmc_card_sleep(host);
+		if (ret) 
+			break;
+		mmc_delay(mmc_wearout_debugfs.param1);
+
+		ret = mmc_card_awake(host);
+		if (ret) 
+			break;
+
+		mmc_wearout_debugfs.countrepeated ++ ;
+		if (mmc_wearout_debugfs.cmdstop == 1 ) 
+			break;	
+	}
+
+	return ret ;
 }
 
-static int mmc_wearout_run_awake(struct mmc_test_card *test)
-{
-	struct mmc_card *card = test->card;
-	struct mmc_host *host = card->host;
-
-	pr_info("_______________ run the routine ,mmc_wearout_run_awake  __________________\n" ) ;
-
-	return 	mmc_card_awake(host);
-}
 
 static int mmc_wearout_run_flush_cache(struct mmc_test_card *test)
 {
 	struct mmc_card *card = test->card;
 
-	pr_info("_______________ run the routine ,mmc_wearout_run_flush_cache  __________________\n" ) ;
+	pr_info("_______msgmmc,debugfs.c,mmc_wearout_run_flush_cache \n" ) ;
 
 	return 	mmc_flush_cache(card);
 }
@@ -1851,7 +1890,7 @@ static int mmc_wearout_run_disable_cache(struct mmc_test_card *test)
 	struct mmc_card *card = test->card;
 	struct mmc_host *host = card->host;
 
-	pr_info("_______________ run the routine ,mmc_wearout_run_disable_cache  __________________\n" ) ;
+	pr_info("_______msgmmc,debugfs.c,mmc_wearout_run_disable_cache \n" ) ;	
 
 	return 	mmc_cache_ctrl(host, mmc_wearout_debugfs.param1);
 }
@@ -1861,7 +1900,8 @@ static int mmc_wearout_run_modify_extcsd(struct mmc_test_card *test)
 	struct mmc_card *card = test->card;
 	int err ;
 
-	pr_info("_______________ run the routine ,mmc_wearout_run_disable_cache  __________________\n" ) ;
+	pr_info("_______msgmmc,debugfs.c,mmc_wearout_run_modify_extcsd \n" ) ;
+	
 	err = mmc_switch(card, EXT_CSD_CMD_SET_NORMAL,
 			mmc_wearout_debugfs.param1, mmc_wearout_debugfs.param2, 0);
 
@@ -1901,12 +1941,8 @@ static const struct mmc_wearout_test_case list_mmc_wearout_test_case[] =
 			.run = mmc_wearout_run_power_onoff_without_resotring,
 	},
 	{
-			.name = "eMMC Sleep",
-			.run = mmc_wearout_run_sleep,
-	},
-	{
-			.name = "eMMC Awake",
-			.run = mmc_wearout_run_awake,
+			.name = "eMMC Sleep and wakeup",
+			.run = mmc_wearout_run_sleep_wakeup,
 	},
 	{
 			.name = "eMMC Flush Cache",
@@ -1962,7 +1998,6 @@ static ssize_t mmc_wearout_countsaveaddrs_write(struct file *file, const char __
 	{
 		kfree (psaveblocks) ;
 		psaveblocks = (u8*)0 ;
-		pr_info("_______________  free memory  for psaveblocks  __________________\n" ) ;
 	}
 
 	if ( countsaveaddrs  == 0) 
@@ -1976,7 +2011,7 @@ static ssize_t mmc_wearout_countsaveaddrs_write(struct file *file, const char __
 	if (!psaveblocks ) 
 	{
 		mmc_wearout_debugfs.countsaveaddrs = 0 ;
-		pr_info("_______________ can't alloc memory : %d __________________\n", countsaveaddrs ) ;
+		pr_info("_______msgmmc,debugfs.c,mmc_wearout_countsaveaddrs_write/can't alloc memory \n" ) ;
 		return RESULT_FAIL ;
 	}	
 
@@ -2025,7 +2060,6 @@ static ssize_t mmc_wearout_listrandromblock_write(struct file *file,const char _
 		kfree ( mmc_wearout_debugfs.listaddrrandom ) ;
 		mmc_wearout_debugfs.listaddrrandom = (unsigned int*) 0 ; 
 		mmc_wearout_debugfs.sizelistaddrrandom = 0 ;
-		pr_info("_______________  free memory  for listaddrrandom  __________________\n" ) ;
 	}
 
 	if ( cnt < 4 )
@@ -2036,7 +2070,7 @@ static ssize_t mmc_wearout_listrandromblock_write(struct file *file,const char _
 	mmc_wearout_debugfs.listaddrrandom  = kmalloc(cnt, GFP_KERNEL);
 	if (!mmc_wearout_debugfs.listaddrrandom)
 	{
-		pr_info("_______________  fail to alloc  memory  for listaddrrandom  __________________\n" ) ;
+		pr_info("_______msgmmc,debugfs.c,mmc_wearout_listrandromblock_write/can't alloc memory \n" );
 		return -EFAULT ;
 	}
 
@@ -2181,7 +2215,7 @@ static void mmc_wearout_testcmd_run(struct mmc_test_card *test, int testcase)
 	mmc_release_host(test->card->host);
 	mmc_rpm_release(test->card->host, &test->card->dev);
 
-	mmc_wearout_debugfs.cmdindex = JOB_NOTHING ;
+
 
 	pr_info("%s: Tests completed.\n", mmc_hostname(test->card->host));
 }
@@ -2242,7 +2276,8 @@ static ssize_t mmc_wearout_testcmd_write(struct file *file, const char __user *b
 	kfree(test->buffer);
 	kfree(test);
 
-	mmc_wearout_debugfs.cmdstop = 0  ;
+	mmc_wearout_debugfs.cmdindex = JOB_NOTHING ;
+	
 	return count;
 }
 
